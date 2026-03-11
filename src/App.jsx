@@ -4,7 +4,7 @@ const { useState, useEffect, useCallback, useMemo, useRef } = React;
 var DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 var HRS = [];
 (function(){for(var h=8;h<18;h++){for(var m=0;m<60;m+=10){if(h===17&&m>50)break;HRS.push((h<10?"0":"")+h+":"+(m<10?"0":"")+m)}}})();
-var VINCULOS = ["PJ fixo", "PJ hora", "CLT", "Estagiário", "Administrativo", "Diretoria", "Coordenação", "RH", "Financeiro"];
+var VINCULOS_DEFAULT = ["PJ fixo", "PJ hora", "CLT", "Estagiário", "Administrativo", "Diretoria", "Coordenação", "RH", "Financeiro"];
 var STATUS_PACIENTE = ["Ativo", "Aguardando Contato", "Antigo"];
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -74,7 +74,9 @@ function getEmpty() {
       {id:"p48",nome:"Varléia Dias Paula",tipo:"CLT",especialidades:["Psicopedagogia"],disp:{},obs:""}
     ],
     ausencias: {},
-    prioVinculo: ["PJ fixo","PJ hora","CLT","Estagiário","Administrativo","Diretoria","Coordenação","RH","Financeiro"]
+    historicoFaltas: [],
+    vinculos: VINCULOS_DEFAULT.slice(),
+    prioVinculo: VINCULOS_DEFAULT.slice()
   };
 }
 
@@ -201,6 +203,7 @@ var NAV = [
   {id:"profissionais",icon:"👩‍⚕️",lb:"Profissionais"},
   {id:"tratamentos",icon:"💊",lb:"Tratamentos"},
   {id:"salas",icon:"🏠",lb:"Salas"},
+  {id:"vinculos",icon:"🏷️",lb:"Vínculos"},
   {id:"ausencias",icon:"🚫",lb:"Faltas"},
   {id:"config",icon:"⚙️",lb:"Configurações"}
 ];
@@ -232,6 +235,10 @@ function App() {
       def.tratamentos.forEach(function(t){ if(existTratIds.indexOf(t.id)<0) merged.tratamentos.push(t); });
       /* If no profissionais exist yet, use defaults from planilha */
       if(!merged.profissionais||merged.profissionais.length===0) merged.profissionais=def.profissionais;
+      /* Merge vinculos: keep existing, add new defaults */
+      if(!merged.vinculos) merged.vinculos=def.vinculos;
+      else { def.vinculos.forEach(function(v){ if(merged.vinculos.indexOf(v)<0) merged.vinculos.push(v); }); }
+      if(!merged.historicoFaltas) merged.historicoFaltas=[];
       setData(merged);
     }
     setLoading(false);
@@ -302,7 +309,13 @@ function App() {
         showToast("⚠️ "+affected+" sessão(ões) passaram para 'Aguardando Profissional' neste dia!");
       }
     }
-    persist(Object.assign({},data,{ausencias:a,sessoes:ns}));
+    /* Registrar no histórico de faltas */
+    var hist = (data.historicoFaltas||[]).slice();
+    if(willBeAbsent){
+      var prof = data.profissionais.find(function(p){return p.id===pid});
+      hist.push({id:uid(),profissionalId:pid,profissionalNome:prof?prof.nome:"",dia:dia,dataRegistro:new Date().toISOString().slice(0,10),horaRegistro:new Date().toTimeString().slice(0,5)});
+    }
+    persist(Object.assign({},data,{ausencias:a,sessoes:ns,historicoFaltas:hist}));
   }
   function clrAus(){persist(Object.assign({},data,{ausencias:{}}))}
 
@@ -473,6 +486,7 @@ function App() {
         if(n.id==="profissionais"&&data.profissionais.length>0)cnt=data.profissionais.length;
         if(n.id==="salas"&&data.salas.length>0)cnt=data.salas.length;
         if(n.id==="tratamentos")cnt=data.tratamentos.length||null;
+        if(n.id==="vinculos")cnt=(data.vinculos||[]).length||null;
         return React.createElement("div",{key:n.id,onClick:function(){setTab(n.id);setSearch("")},style:{display:"flex",alignItems:"center",gap:10,padding:"10px 18px",cursor:"pointer",background:tab===n.id?"rgba(255,255,255,.12)":"transparent",color:tab===n.id?"#fff":"rgba(255,255,255,.5)",borderRight:tab===n.id?"3px solid "+C.acc:"3px solid transparent",fontSize:13,fontWeight:tab===n.id?700:500}},
           React.createElement("span",{style:{fontSize:15}},n.icon), n.lb,
           cnt&&React.createElement("span",{style:{marginLeft:"auto",fontSize:10,background:"rgba(255,255,255,.15)",padding:"1px 7px",borderRadius:10}},cnt),
@@ -685,10 +699,20 @@ function App() {
       data.profissionais.length===0?React.createElement(Crd,{style:{textAlign:"center",padding:40,border:"2px dashed "+C.bd}},React.createElement("p",{style:{color:C.txM}},"Nenhum profissional"))
       :React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:14}},
         fil.map(function(prof){
-          var tot=Object.values(prof.disp||{}).reduce(function(a,b){return a+b.length},0);
+          /* Calcular horas por dia e total semanal (cada slot = 50 min) */
+          var horasPorDia = {};
+          var totalMinSem = 0;
+          DIAS.forEach(function(d){
+            var slots = (prof.disp&&prof.disp[d]||[]).length;
+            var mins = slots * 50;
+            totalMinSem += mins;
+            if(mins > 0) horasPorDia[d] = mins;
+          });
+          function fmtMin(m){var h=Math.floor(m/60);var mm=m%60;return h+"h"+(mm>0?mm+"m":"")}
           var vv=prof.tipo==="PJ fixo"?"pp":prof.tipo==="PJ hora"?"bl":prof.tipo==="Estagiário"?"wr":"df";
           var especs = (prof.especialidades||[]).join(", ")||"Nenhuma especialidade";
           var isDesligado = !!prof.dataDesligamento;
+          var faltasProf = (data.historicoFaltas||[]).filter(function(f){return f.profissionalId===prof.id}).length;
           return React.createElement(Crd,{key:prof.id,style:{cursor:"pointer",opacity:isDesligado?0.5:1},onClick:function(){setEdit(Object.assign({},prof,{especialidades:(prof.especialidades||[]).slice(),disp:JSON.parse(JSON.stringify(prof.disp||{}))}));setModal("prof")}},
             React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}},
               React.createElement("div",null,
@@ -696,7 +720,8 @@ function App() {
                 React.createElement("div",{style:{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}},
                   isDesligado&&React.createElement(Badge,{v:"er"},"Desligado"),
                   React.createElement(Badge,{v:vv},prof.tipo),
-                  React.createElement(Badge,null,tot+" slots/sem"),
+                  React.createElement(Badge,{v:"bl"},fmtMin(totalMinSem)+"/sem"),
+                  faltasProf>0&&React.createElement(Badge,{v:"er"},faltasProf+" falta(s)"),
                   prof.dataAdmissao&&React.createElement(Badge,{v:"ok"},"Adm: "+prof.dataAdmissao)
                 )
               ),
@@ -705,7 +730,7 @@ function App() {
             React.createElement("div",{style:{fontSize:11,color:C.txM,marginBottom:4}},
               React.createElement("b",null,"Especialidades: "),especs
             ),
-            React.createElement("div",{style:{fontSize:11,color:C.txM}},DIAS.map(function(d){var h=(prof.disp&&prof.disp[d]||[]).length;return h?d.slice(0,3)+": "+h+"h":null}).filter(Boolean).join(" · ")||"Sem disponibilidade")
+            React.createElement("div",{style:{fontSize:11,color:C.txM}},DIAS.map(function(d){return horasPorDia[d]?d.slice(0,3)+": "+fmtMin(horasPorDia[d]):null}).filter(Boolean).join(" · ")||"Sem disponibilidade")
           )
         })
       )
@@ -821,6 +846,49 @@ function App() {
     );
   }
 
+  /* ── Vínculos ── */
+  var sNewVinc = useState(""), newVinc = sNewVinc[0], setNewVinc = sNewVinc[1];
+  function rVinculos(){
+    var vinculos = data.vinculos || VINCULOS_DEFAULT;
+    return React.createElement("div",null,
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}},
+        React.createElement("div",null,
+          React.createElement("h2",{style:{fontSize:24,fontWeight:800,margin:0}},"Vínculos"),
+          React.createElement("p",{style:{color:C.txM,fontSize:13,margin:"4px 0 0"}},vinculos.length+" tipo(s) de vínculo")
+        )
+      ),
+      React.createElement(Crd,{style:{marginBottom:20}},
+        React.createElement("div",{style:{display:"flex",gap:8,marginBottom:16,alignItems:"flex-end"}},
+          React.createElement(Inp,{label:"Novo Vínculo",value:newVinc,onChange:setNewVinc,placeholder:"Ex: Temporário"}),
+          React.createElement(Btn,{v:"pri",sz:"sm",onClick:function(){
+            if(newVinc.trim() && vinculos.indexOf(newVinc.trim())<0){
+              var nv = vinculos.concat(newVinc.trim());
+              persist(Object.assign({},data,{vinculos:nv}));
+              setNewVinc("");
+              showToast("Vínculo adicionado!");
+            }
+          },style:{marginBottom:0}},"+ Adicionar")
+        ),
+        React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:6}},
+          vinculos.map(function(v){
+            var count = data.profissionais.filter(function(p){return p.tipo===v}).length;
+            return React.createElement("div",{key:v,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:C.bg,borderRadius:8,border:"1px solid "+C.bd}},
+              React.createElement("span",{style:{flex:1,fontSize:13,fontWeight:600}},v),
+              React.createElement(Badge,{v:"bl"},count+" profissional(is)"),
+              React.createElement(Btn,{v:"er",sz:"sm",disabled:count>0,onClick:function(){
+                if(count>0){showToast("Não é possível remover: "+count+" profissional(is) usam este vínculo");return}
+                var nv = vinculos.filter(function(x){return x!==v});
+                var np = (data.prioVinculo||[]).filter(function(x){return x!==v});
+                persist(Object.assign({},data,{vinculos:nv,prioVinculo:np}));
+                showToast("Vínculo removido!");
+              }},"🗑")
+            );
+          })
+        )
+      )
+    );
+  }
+
   /* ── Config ── */
   function rConf(){
     return React.createElement("div",null,
@@ -828,7 +896,7 @@ function App() {
       React.createElement(Crd,{style:{marginBottom:20}},
         React.createElement("h4",{style:{margin:"0 0 8px",fontWeight:700}},"Prioridade por Vínculo"),
         React.createElement("p",{style:{color:C.txM,fontSize:12,marginBottom:14}},"Primeiro tipo é priorizado."),
-        React.createElement(ReorderList,{items:data.prioVinculo||VINCULOS,onChange:function(v){persist(Object.assign({},data,{prioVinculo:v}))}})
+        React.createElement(ReorderList,{items:data.prioVinculo||data.vinculos||VINCULOS_DEFAULT,onChange:function(v){persist(Object.assign({},data,{prioVinculo:v}))}})
       ),
       React.createElement(Crd,{style:{marginBottom:20}},
         React.createElement("h4",{style:{margin:"0 0 8px",fontWeight:700}},"Backup dos Dados"),
@@ -989,7 +1057,7 @@ function App() {
         edit&&React.createElement("div",null,
           React.createElement("div",{style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:14,marginBottom:18}},
             React.createElement(Inp,{label:"Nome",value:edit.nome,onChange:function(v){setEdit(Object.assign({},edit,{nome:v}))},placeholder:"Ex: Ana"}),
-            React.createElement(Sel,{label:"Vínculo",value:edit.tipo,onChange:function(v){setEdit(Object.assign({},edit,{tipo:v}))},options:VINCULOS.map(function(v){return{value:v,label:v}})}),
+            React.createElement(Sel,{label:"Vínculo",value:edit.tipo,onChange:function(v){setEdit(Object.assign({},edit,{tipo:v}))},options:(data.vinculos||VINCULOS_DEFAULT).map(function(v){return{value:v,label:v}})}),
             React.createElement(Inp,{label:"Data Admissão",type:"date",value:edit.dataAdmissao||"",onChange:function(v){setEdit(Object.assign({},edit,{dataAdmissao:v}))}}),
             React.createElement(Inp,{label:"Data Desligamento",type:"date",value:edit.dataDesligamento||"",onChange:function(v){setEdit(Object.assign({},edit,{dataDesligamento:v}))}})
           ),
@@ -1002,6 +1070,23 @@ function App() {
             React.createElement("p",{style:{fontSize:11,color:C.txL,marginBottom:8}},"Clique nos horários. Clique no dia para marcar todos."),
             React.createElement(DayGrid,{value:edit.disp||{},onChange:function(v){setEdit(Object.assign({},edit,{disp:v}))},color:(edit.tipo||"").indexOf("PJ")>=0?C.pp:edit.tipo==="Estagiário"?C.wr:C.bl})
           ),
+          /* Histórico de faltas */
+          function(){
+            if(!edit.id) return null;
+            var faltas = (data.historicoFaltas||[]).filter(function(f){return f.profissionalId===edit.id});
+            if(faltas.length===0) return null;
+            return React.createElement("div",{style:{marginBottom:18}},
+              React.createElement("label",{style:{fontSize:11,fontWeight:600,color:C.txM,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:8}},"Histórico de Faltas ("+faltas.length+")"),
+              React.createElement("div",{style:{maxHeight:150,overflowY:"auto",background:C.bg,borderRadius:8,border:"1px solid "+C.bd,padding:8}},
+                faltas.slice().reverse().map(function(f){
+                  return React.createElement("div",{key:f.id,style:{display:"flex",gap:8,alignItems:"center",padding:"4px 0",borderBottom:"1px solid "+C.bd,fontSize:11}},
+                    React.createElement(Badge,{v:"er"},f.dia),
+                    React.createElement("span",{style:{color:C.txM}},"Registrado em "+f.dataRegistro+" às "+f.horaRegistro)
+                  );
+                })
+              )
+            );
+          }(),
           React.createElement("div",{style:{display:"flex",gap:10,justifyContent:"flex-end"}},
             React.createElement(Btn,{v:"df",onClick:closeM},"Cancelar"),
             React.createElement(Btn,{v:"pri",onClick:function(){saveProf(edit)},disabled:!edit.nome},"Salvar")
@@ -1231,6 +1316,7 @@ function App() {
   else if(tab==="profissionais")content=rProfs();
   else if(tab==="tratamentos")content=rTratamentos();
   else if(tab==="salas")content=rSalas();
+  else if(tab==="vinculos")content=rVinculos();
   else if(tab==="ausencias")content=rAus();
   else if(tab==="config")content=rConf();
 
