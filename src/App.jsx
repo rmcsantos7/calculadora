@@ -3,7 +3,7 @@ const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
 var DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 var HRS = [];
-(function(){for(var h=8;h<18;h++){for(var m=0;m<60;m+=10){if(h===17&&m>50)break;HRS.push((h<10?"0":"")+h+":"+(m<10?"0":"")+m)}}})();
+(function(){for(var h=8;h<=18;h++){for(var m=0;m<60;m+=10){HRS.push((h<10?"0":"")+h+":"+(m<10?"0":"")+m);if(h===18&&m===0)break}}})();
 var VINCULOS_DEFAULT = ["PJ fixo", "PJ hora", "CLT", "Estagiário", "Administrativo", "Diretoria", "Coordenação", "RH", "Financeiro"];
 var STATUS_PACIENTE = ["Ativo", "Aguardando Contato", "Antigo"];
 
