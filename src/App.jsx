@@ -219,6 +219,7 @@ function App() {
   var sImp = useState(null), importMode = sImp[0], setImportMode = sImp[1];
   var sImpTxt = useState(""), importTxt = sImpTxt[0], setImportTxt = sImpTxt[1];
   var sMsg = useState(null), toast = sMsg[0], setToast = sMsg[1];
+  var sNewVinc = useState(""), newVinc = sNewVinc[0], setNewVinc = sNewVinc[1];
   var fileRef = useRef(null);
 
   useEffect(function() { ldDB().then(function(d) {
@@ -847,7 +848,6 @@ function App() {
   }
 
   /* ── Vínculos ── */
-  var sNewVinc = useState(""), newVinc = sNewVinc[0], setNewVinc = sNewVinc[1];
   function rVinculos(){
     var vinculos = data.vinculos || VINCULOS_DEFAULT;
     return React.createElement("div",null,
