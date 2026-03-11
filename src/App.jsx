@@ -4,7 +4,8 @@ const { useState, useEffect, useCallback, useMemo, useRef } = React;
 var DIAS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta"];
 var HRS = [];
 (function(){for(var h=8;h<18;h++){for(var m=0;m<60;m+=10){if(h===17&&m>50)break;HRS.push((h<10?"0":"")+h+":"+(m<10?"0":"")+m)}}})();
-var VINCULOS = ["PJ fixo", "PJ hora", "CLT", "Estagiário"];
+var VINCULOS = ["PJ fixo", "PJ hora", "CLT", "Estagiário", "Administrativo", "Diretoria", "Coordenação", "RH", "Financeiro"];
+var STATUS_PACIENTE = ["Ativo", "Aguardando Contato", "Antigo"];
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function getEmpty() {
@@ -73,7 +74,7 @@ function getEmpty() {
       {id:"p48",nome:"Varléia Dias Paula",tipo:"CLT",especialidades:["Psicopedagogia"],disp:{},obs:""}
     ],
     ausencias: {},
-    prioVinculo: ["PJ fixo","PJ hora","CLT","Estagiário"]
+    prioVinculo: ["PJ fixo","PJ hora","CLT","Estagiário","Administrativo","Diretoria","Coordenação","RH","Financeiro"]
   };
 }
 
@@ -245,7 +246,18 @@ function App() {
   function saveProf(p){
     var ex=data.profissionais.find(function(x){return x.id===p.id});
     var np=ex?data.profissionais.map(function(x){return x.id===p.id?p:x}):data.profissionais.concat(Object.assign({},p,{id:uid()}));
-    persist(Object.assign({},data,{profissionais:np}));setModal(null);setEdit(null);
+    var ns = data.sessoes;
+    /* Se desligou profissional, sessões confirmadas com ele → aguardando */
+    if(p.dataDesligamento && ex && !ex.dataDesligamento){
+      ns = data.sessoes.map(function(s){
+        if(s.profissionalId===p.id && s.status==="confirmado"){
+          return Object.assign({},s,{profissionalId:"",status:"aguardando"});
+        }
+        return s;
+      });
+      showToast("⚠️ Profissional desligado — sessões passaram para 'Aguardando'");
+    }
+    persist(Object.assign({},data,{profissionais:np,sessoes:ns}));setModal(null);setEdit(null);
   }
   function delProf(id){
     /* Se deletar prof, sessões confirmadas com ele passam para Aguardando */
@@ -302,6 +314,8 @@ function App() {
     var aus = data.ausencias || {};
 
     return data.profissionais.filter(function(prof){
+      /* Filter desligados */
+      if(prof.dataDesligamento) return false;
       /* Filter by specialty match */
       if(especsNeeded.length > 0){
         var profEspecs = prof.especialidades || [];
@@ -575,7 +589,7 @@ function App() {
                   var bg = isAguardando?C.wrBg:i%2===0?"#fff":C.bg;
 
                   return React.createElement("tr",{key:s.id,style:{borderBottom:"1px solid "+C.bd,background:bg}},
-                    React.createElement("td",{style:{padding:"9px 12px",fontFamily:"monospace",fontWeight:600,fontSize:11}},(s.horaInicio||"")+" - "+(s.horaFim||"")),
+                    React.createElement("td",{style:{padding:"9px 12px",fontFamily:"monospace",fontWeight:600,fontSize:11}},(s.horaInicio||"")+" às "+(s.horaFim||"")),
                     React.createElement("td",{style:{padding:"9px 12px",fontWeight:600}},pac?pac.nome:"—"),
                     React.createElement("td",{style:{padding:"9px 12px"}},trat?React.createElement(Badge,{v:"pp"},trat.nome):React.createElement("span",{style:{color:C.txL}},"—")),
                     React.createElement("td",{style:{padding:"9px 12px",fontWeight:isAguardando?700:500,color:isAguardando?C.wr:C.tx}},
@@ -613,7 +627,7 @@ function App() {
         React.createElement("div",null,React.createElement("h2",{style:{fontSize:24,fontWeight:800,margin:0}},"Pacientes"),React.createElement("p",{style:{color:C.txM,fontSize:13,margin:"4px 0 0"}},data.pacientes.length+" cadastrado(s)")),
         React.createElement("div",{style:{display:"flex",gap:8}},
           React.createElement(Btn,{v:"df",onClick:function(){setImportMode("pacientes")}},"📥 Importar"),
-          React.createElement(Btn,{v:"pri",onClick:function(){setEdit({nome:"",nivel:"Nível 1",obs:"",convenio:"",sessoesLiberadas:{},prios:["","",""]});setModal("pac")}},"+ Paciente")
+          React.createElement(Btn,{v:"pri",onClick:function(){setEdit({nome:"",nivel:"Nível 1",obs:"",convenio:"",sessoesLiberadas:{},prios:["","",""],status:"Ativo"});setModal("pac")}},"+ Paciente")
         )
       ),
       data.pacientes.length>3&&React.createElement(Inp,{placeholder:"Buscar...",value:search,onChange:setSearch,style:{marginBottom:16,width:"100%"}}),
@@ -627,9 +641,11 @@ function App() {
               React.createElement("div",null,
                 React.createElement("div",{style:{fontSize:15,fontWeight:700}},pac.nome),
                 React.createElement("div",{style:{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}},
+                  React.createElement(Badge,{v:(pac.status||"Ativo")==="Ativo"?"ok":(pac.status||"Ativo")==="Aguardando Contato"?"wr":"df"},pac.status||"Ativo"),
                   pac.nivel&&React.createElement(Badge,{v:pac.nivel==="Nível 3"?"er":pac.nivel==="Nível 2"?"wr":"ok"},pac.nivel),
                   pac.convenio&&React.createElement(Badge,{v:"tl"},pac.convenio),
-                  React.createElement(Badge,{v:"bl"},sesCount+" sessão(ões)")
+                  React.createElement(Badge,{v:"bl"},sesCount+" sessão(ões)"),
+                  function(){var sl=pac.sessoesLiberadas||{};var total=Object.values(sl).reduce(function(a,b){return a+(parseInt(b)||0)},0);return total>0?React.createElement(Badge,{v:"pp"},total+" liberada(s)"):null}()
                 )
               ),
               React.createElement(Btn,{v:"er",sz:"sm",onClick:function(e){e.stopPropagation();delPac(pac.id)}},"🗑")
@@ -662,7 +678,7 @@ function App() {
         React.createElement("div",null,React.createElement("h2",{style:{fontSize:24,fontWeight:800,margin:0}},"Profissionais"),React.createElement("p",{style:{color:C.txM,fontSize:13,margin:"4px 0 0"}},data.profissionais.length+" cadastrado(s)")),
         React.createElement("div",{style:{display:"flex",gap:8}},
           React.createElement(Btn,{v:"df",onClick:function(){setImportMode("profissionais")}},"📥 Importar"),
-          React.createElement(Btn,{v:"pri",onClick:function(){setEdit({nome:"",tipo:"CLT",especialidades:[],disp:{},obs:""});setModal("prof")}},"+ Novo")
+          React.createElement(Btn,{v:"pri",onClick:function(){setEdit({nome:"",tipo:"CLT",especialidades:[],disp:{},obs:"",dataAdmissao:"",dataDesligamento:""});setModal("prof")}},"+ Novo")
         )
       ),
       data.profissionais.length>3&&React.createElement(Inp,{placeholder:"Buscar...",value:search,onChange:setSearch,style:{marginBottom:16,width:"100%"}}),
@@ -672,13 +688,16 @@ function App() {
           var tot=Object.values(prof.disp||{}).reduce(function(a,b){return a+b.length},0);
           var vv=prof.tipo==="PJ fixo"?"pp":prof.tipo==="PJ hora"?"bl":prof.tipo==="Estagiário"?"wr":"df";
           var especs = (prof.especialidades||[]).join(", ")||"Nenhuma especialidade";
-          return React.createElement(Crd,{key:prof.id,style:{cursor:"pointer"},onClick:function(){setEdit(Object.assign({},prof,{especialidades:(prof.especialidades||[]).slice(),disp:JSON.parse(JSON.stringify(prof.disp||{}))}));setModal("prof")}},
+          var isDesligado = !!prof.dataDesligamento;
+          return React.createElement(Crd,{key:prof.id,style:{cursor:"pointer",opacity:isDesligado?0.5:1},onClick:function(){setEdit(Object.assign({},prof,{especialidades:(prof.especialidades||[]).slice(),disp:JSON.parse(JSON.stringify(prof.disp||{}))}));setModal("prof")}},
             React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}},
               React.createElement("div",null,
                 React.createElement("div",{style:{fontSize:15,fontWeight:700}},prof.nome),
                 React.createElement("div",{style:{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}},
+                  isDesligado&&React.createElement(Badge,{v:"er"},"Desligado"),
                   React.createElement(Badge,{v:vv},prof.tipo),
-                  React.createElement(Badge,null,tot+" slots/sem")
+                  React.createElement(Badge,null,tot+" slots/sem"),
+                  prof.dataAdmissao&&React.createElement(Badge,{v:"ok"},"Adm: "+prof.dataAdmissao)
                 )
               ),
               React.createElement(Btn,{v:"er",sz:"sm",onClick:function(e){e.stopPropagation();delProf(prof.id)}},"🗑")
@@ -917,10 +936,11 @@ function App() {
       /* Paciente */
       React.createElement(Mdl,{open:modal==="pac",onClose:closeM,title:edit&&edit.id?"Editar Paciente":"Novo Paciente",wide:true},
         edit&&React.createElement("div",null,
-          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:18}},
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:14,marginBottom:18}},
             React.createElement(Inp,{label:"Nome",value:edit.nome,onChange:function(v){setEdit(Object.assign({},edit,{nome:v}))},placeholder:"Ex: Lucas"}),
             React.createElement(Sel,{label:"Nível",value:edit.nivel||"",onChange:function(v){setEdit(Object.assign({},edit,{nivel:v}))},options:["Nível 1","Nível 2","Nível 3"]}),
-            React.createElement(Inp,{label:"Convênio",value:edit.convenio||"",onChange:function(v){setEdit(Object.assign({},edit,{convenio:v}))},placeholder:"Ex: Unimed, Amil..."})
+            React.createElement(Inp,{label:"Convênio",value:edit.convenio||"",onChange:function(v){setEdit(Object.assign({},edit,{convenio:v}))},placeholder:"Ex: Unimed, Amil..."}),
+            React.createElement(Sel,{label:"Status",value:edit.status||"Ativo",onChange:function(v){setEdit(Object.assign({},edit,{status:v}))},options:STATUS_PACIENTE,placeholder:false})
           ),
           React.createElement("div",{style:{marginBottom:18}},
             React.createElement(Inp,{label:"Observações",value:edit.obs||"",onChange:function(v){setEdit(Object.assign({},edit,{obs:v}))},placeholder:"Anotações"})
@@ -967,9 +987,11 @@ function App() {
       /* Profissional */
       React.createElement(Mdl,{open:modal==="prof",onClose:closeM,title:edit&&edit.id?"Editar Profissional":"Novo Profissional",wide:true},
         edit&&React.createElement("div",null,
-          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:18}},
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"2fr 1fr 1fr 1fr",gap:14,marginBottom:18}},
             React.createElement(Inp,{label:"Nome",value:edit.nome,onChange:function(v){setEdit(Object.assign({},edit,{nome:v}))},placeholder:"Ex: Ana"}),
-            React.createElement(Sel,{label:"Vínculo",value:edit.tipo,onChange:function(v){setEdit(Object.assign({},edit,{tipo:v}))},options:VINCULOS.map(function(v){return{value:v,label:v}})})
+            React.createElement(Sel,{label:"Vínculo",value:edit.tipo,onChange:function(v){setEdit(Object.assign({},edit,{tipo:v}))},options:VINCULOS.map(function(v){return{value:v,label:v}})}),
+            React.createElement(Inp,{label:"Data Admissão",type:"date",value:edit.dataAdmissao||"",onChange:function(v){setEdit(Object.assign({},edit,{dataAdmissao:v}))}}),
+            React.createElement(Inp,{label:"Data Desligamento",type:"date",value:edit.dataDesligamento||"",onChange:function(v){setEdit(Object.assign({},edit,{dataDesligamento:v}))}})
           ),
           React.createElement("div",{style:{marginBottom:18}},
             React.createElement(MultiChip,{label:"Especialidades",value:edit.especialidades||[],onChange:function(v){setEdit(Object.assign({},edit,{especialidades:v}))},options:data.especialidades||[]})
