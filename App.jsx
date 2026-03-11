@@ -1003,12 +1003,22 @@ function App() {
     /* Available profs for session edit */
     var availProfs = [];
     var isPrioProf = {};
+    var salaConflito = null;
     if(edit && modal==="sessao"){
       availProfs = getProfsParaSessao(edit);
       availProfs = sortProfsForPatient(availProfs, edit.pacienteId);
       var pac = data.pacientes.find(function(p){return p.id===edit.pacienteId});
       var prios = pac ? (pac.prios||[]).filter(Boolean) : [];
       prios.forEach(function(pid){ isPrioProf[pid]=true; });
+      /* Check sala conflict */
+      if(edit.salaId && edit.dia && edit.horaInicio && edit.horaFim){
+        salaConflito = data.sessoes.find(function(s){
+          if(s.id===edit.id) return false;
+          if(s.salaId!==edit.salaId) return false;
+          if(s.dia!==edit.dia) return false;
+          return s.horaInicio < edit.horaFim && s.horaFim > edit.horaInicio;
+        });
+      }
     }
 
     return React.createElement(React.Fragment,null,
@@ -1063,8 +1073,24 @@ function App() {
                     :"Selecione um tratamento para filtrar profissionais."
                 )
             ),
-            React.createElement(Sel,{label:"Sala",value:edit.salaId||"",onChange:function(v){setEdit(Object.assign({},edit,{salaId:v}))},options:data.salas.map(function(s){return{value:s.id,label:"Sala "+s.numero+" ("+s.andar+")"}}),placeholder:"Opcional"})
+            React.createElement(Sel,{label:"Sala",value:edit.salaId||"",onChange:function(v){setEdit(Object.assign({},edit,{salaId:v}))},options:data.salas.map(function(s){
+              var ocupada=edit.dia&&edit.horaInicio&&edit.horaFim&&data.sessoes.some(function(ss){
+                if(ss.id===edit.id)return false;if(ss.salaId!==s.id)return false;if(ss.dia!==edit.dia)return false;
+                return ss.horaInicio<edit.horaFim&&ss.horaFim>edit.horaInicio;
+              });
+              return{value:s.id,label:"Sala "+s.numero+" ("+s.andar+")"+(ocupada?" — OCUPADA":"")}
+            }),placeholder:"Opcional"})
           ),
+          salaConflito&&function(){
+            var pacC=data.pacientes.find(function(p){return p.id===salaConflito.pacienteId});
+            var salaC=data.salas.find(function(s){return s.id===salaConflito.salaId});
+            return React.createElement("div",{style:{padding:12,background:C.erBg,borderRadius:10,marginBottom:18,border:"1px solid "+C.er+"44"}},
+              React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.er}},"⚠️ Sala "+(salaC?salaC.numero:"")+" já está ocupada!"),
+              React.createElement("div",{style:{fontSize:12,color:C.er,marginTop:4}},
+                (pacC?pacC.nome:"Outra sessão")+" — "+salaConflito.dia+" "+salaConflito.horaInicio+"–"+salaConflito.horaFim
+              )
+            );
+          }(),
           edit.profissionalId===""&&edit.tratamentoId&&React.createElement("div",{style:{padding:14,background:C.wrBg,borderRadius:10,marginBottom:18}},
             React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.wr,marginBottom:4}},"⏳ Status: Aguardando Profissional Disponível"),
             React.createElement("div",{style:{fontSize:12,color:C.wr}},"Você poderá voltar nesta sessão para atribuir um profissional quando houver disponibilidade.")
