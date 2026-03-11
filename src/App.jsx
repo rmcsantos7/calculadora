@@ -276,6 +276,38 @@ function App() {
       if(!merged.vinculos) merged.vinculos=def.vinculos;
       else { def.vinculos.forEach(function(v){ if(merged.vinculos.indexOf(v)<0) merged.vinculos.push(v); }); }
       if(!merged.historicoFaltas) merged.historicoFaltas=[];
+      /* Migrate legacy disp format: ["08:00","08:50",...] → [{ini:"08:00",fim:"08:50"},...] */
+      (merged.profissionais||[]).forEach(function(prof){
+        if(!prof.disp) return;
+        DIAS.forEach(function(dia){
+          var arr = prof.disp[dia];
+          if(!arr || arr.length===0) return;
+          if(typeof arr[0]==="string"){
+            /* Convert consecutive slots to ranges. Each slot is 50min. */
+            arr.sort();
+            var ranges=[];
+            var i=0;
+            while(i<arr.length){
+              var start=arr[i];
+              var end=arr[i];
+              /* Group consecutive slots (next slot starts within 50min) */
+              while(i+1<arr.length){
+                var curParts=arr[i].split(":");var nextParts=arr[i+1].split(":");
+                var curMin=parseInt(curParts[0])*60+parseInt(curParts[1]);
+                var nextMin=parseInt(nextParts[0])*60+parseInt(nextParts[1]);
+                if(nextMin-curMin<=50){end=arr[i+1];i++}else break;
+              }
+              /* End time = last slot + 50min */
+              var ep=end.split(":");var em=parseInt(ep[0])*60+parseInt(ep[1])+50;
+              var eh=Math.floor(em/60);var emin=em%60;
+              var fimStr=(eh<10?"0":"")+eh+":"+(emin<10?"0":"")+emin;
+              ranges.push({ini:start,fim:fimStr});
+              i++;
+            }
+            prof.disp[dia]=ranges;
+          }
+        });
+      });
       setData(merged);
     }
     setLoading(false);
