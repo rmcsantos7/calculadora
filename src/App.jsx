@@ -809,12 +809,7 @@ function App() {
             React.createElement("div",{style:{fontSize:11,color:C.txM,marginBottom:4}},
               React.createElement("b",null,"Especialidades: "),especs
             ),
-            React.createElement("div",{style:{fontSize:11,color:C.txM}},DIAS.map(function(d){
-              var faixas=prof.disp&&prof.disp[d]||[];
-              if(faixas.length===0) return null;
-              var txt=faixas.map(function(f){return typeof f==="string"?f:f.ini+"-"+f.fim}).join(", ");
-              return d.slice(0,3)+": "+txt;
-            }).filter(Boolean).join(" · ")||"Sem disponibilidade")
+            null
           )
         })
       )
