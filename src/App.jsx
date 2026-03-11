@@ -159,27 +159,63 @@ function MultiChip(p) {
   );
 }
 
-/* Day-Hour Grid */
-function DayGrid(p) {
-  var val = p.value||{}, color = p.color||C.pri;
-  var GRID_HRS = ["08:00","08:50","09:40","10:30","11:20","13:00","13:50","14:40","15:30","16:20","17:10"];
-  function tog(d,h){var c=Object.assign({},val);if(!c[d])c[d]=[];if(c[d].indexOf(h)>=0)c[d]=c[d].filter(function(x){return x!==h});else c[d]=c[d].concat(h).sort();p.onChange(c)}
-  function togAll(d){var c=Object.assign({},val);c[d]=(c[d]||[]).length===GRID_HRS.length?[]:GRID_HRS.slice();p.onChange(c)}
-  return React.createElement("div",{style:{overflowX:"auto"}},
-    React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11}},
-      React.createElement("thead",null,React.createElement("tr",null,
-        React.createElement("th",null,""),
-        DIAS.map(function(d){return React.createElement("th",{key:d,onClick:function(){togAll(d)},style:{padding:"4px 2px",textAlign:"center",color:C.txL,fontWeight:600,cursor:"pointer",fontSize:10}},d.slice(0,3))})
-      )),
-      React.createElement("tbody",null,GRID_HRS.map(function(h){
-        return React.createElement("tr",{key:h},
-          React.createElement("td",{style:{padding:"2px 6px",color:C.txM,fontFamily:"monospace",fontSize:10}},h),
-          DIAS.map(function(d){var a=(val[d]||[]).indexOf(h)>=0;return React.createElement("td",{key:d,style:{padding:2,textAlign:"center"}},
-            React.createElement("div",{onClick:function(){tog(d,h)},style:{width:26,height:26,borderRadius:6,display:"inline-flex",alignItems:"center",justifyContent:"center",cursor:"pointer",background:a?color:"#eeedea",color:a?"#fff":C.txL,fontWeight:700,fontSize:9,border:a?"none":"1px solid "+C.bd}},a?"✓":"")
-          )})
-        )
-      }))
-    )
+/* Disponibilidade Editor — faixas de horário livres por dia */
+function DispEditor(p) {
+  /* value format: { "Segunda": [{ini:"08:00",fim:"08:50"}, ...], ... } */
+  var val = p.value||{};
+  function addFaixa(dia){
+    var c=Object.assign({},val);
+    if(!c[dia])c[dia]=[];
+    c[dia]=c[dia].concat({ini:"08:00",fim:"08:50"});
+    p.onChange(c);
+  }
+  function updFaixa(dia,idx,field,v){
+    var c=Object.assign({},val);
+    c[dia]=c[dia].map(function(f,i){if(i===idx){var n=Object.assign({},f);n[field]=v;return n}return f});
+    p.onChange(c);
+  }
+  function delFaixa(dia,idx){
+    var c=Object.assign({},val);
+    c[dia]=c[dia].filter(function(_,i){return i!==idx});
+    if(c[dia].length===0) delete c[dia];
+    p.onChange(c);
+  }
+  function calcMinDia(faixas){
+    return (faixas||[]).reduce(function(acc,f){
+      var p1=f.ini.split(":"),p2=f.fim.split(":");
+      var m1=parseInt(p1[0])*60+parseInt(p1[1]),m2=parseInt(p2[0])*60+parseInt(p2[1]);
+      return acc+Math.max(0,m2-m1);
+    },0);
+  }
+  function fmtMin(m){var h=Math.floor(m/60);var mm=m%60;return h+"h"+(mm>0?mm+"m":"")}
+  var totalMin=DIAS.reduce(function(a,d){return a+calcMinDia(val[d])},0);
+
+  return React.createElement("div",null,
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+      React.createElement("span",{style:{fontSize:12,fontWeight:700,color:C.pri}},"Total semanal: "+fmtMin(totalMin))
+    ),
+    DIAS.map(function(dia){
+      var faixas=val[dia]||[];
+      var minDia=calcMinDia(faixas);
+      return React.createElement("div",{key:dia,style:{marginBottom:10,padding:10,background:C.bg,borderRadius:8,border:"1px solid "+C.bd}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:faixas.length>0?8:0}},
+          React.createElement("span",{style:{fontSize:12,fontWeight:700}},dia,minDia>0?React.createElement("span",{style:{fontWeight:400,color:C.txM,marginLeft:6,fontSize:11}},"("+fmtMin(minDia)+")"):null),
+          React.createElement(Btn,{v:"pri",sz:"sm",onClick:function(){addFaixa(dia)}},"+ Horário")
+        ),
+        faixas.map(function(f,idx){
+          return React.createElement("div",{key:idx,style:{display:"flex",gap:8,alignItems:"center",marginBottom:4}},
+            React.createElement("select",{value:f.ini,onChange:function(e){updFaixa(dia,idx,"ini",e.target.value)},style:{padding:"5px 8px",border:"1px solid "+C.bd,borderRadius:6,fontSize:12,background:"#fff"}},
+              HRS.map(function(h){return React.createElement("option",{key:h,value:h},h)})
+            ),
+            React.createElement("span",{style:{fontSize:11,color:C.txM}},"às"),
+            React.createElement("select",{value:f.fim,onChange:function(e){updFaixa(dia,idx,"fim",e.target.value)},style:{padding:"5px 8px",border:"1px solid "+C.bd,borderRadius:6,fontSize:12,background:"#fff"}},
+              HRS.filter(function(h){return h>f.ini}).map(function(h){return React.createElement("option",{key:h,value:h},h)})
+            ),
+            React.createElement(Btn,{v:"er",sz:"sm",onClick:function(){delFaixa(dia,idx)}},"✕")
+          );
+        })
+      );
+    })
   );
 }
 
@@ -338,14 +374,16 @@ function App() {
       }
       /* Filter by absence */
       if(sessao.dia && aus[prof.id+"-"+sessao.dia]) return false;
-      /* Filter by availability: prof must be available at this time slot */
+      /* Filter by availability: prof must have a time range covering the session */
       if(sessao.dia && sessao.horaInicio){
         var profDisp = (prof.disp && prof.disp[sessao.dia]) || [];
-        /* Check if prof has availability that covers the session start */
-        var hasSlot = profDisp.some(function(slot){
-          return slot <= sessao.horaInicio;
-        });
-        if(profDisp.length > 0 && !hasSlot) return false;
+        if(profDisp.length > 0){
+          var hasRange = profDisp.some(function(faixa){
+            if(typeof faixa==="string") return faixa <= sessao.horaInicio; /* legacy */
+            return faixa.ini <= sessao.horaInicio && faixa.fim >= (sessao.horaFim||sessao.horaInicio);
+          });
+          if(!hasRange) return false;
+        }
       }
       /* Check if prof is already booked at this time on this day */
       var busy = data.sessoes.some(function(s){
@@ -700,12 +738,21 @@ function App() {
       data.profissionais.length===0?React.createElement(Crd,{style:{textAlign:"center",padding:40,border:"2px dashed "+C.bd}},React.createElement("p",{style:{color:C.txM}},"Nenhum profissional"))
       :React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:14}},
         fil.map(function(prof){
-          /* Calcular horas por dia e total semanal (cada slot = 50 min) */
+          /* Calcular horas por dia e total semanal */
           var horasPorDia = {};
           var totalMinSem = 0;
+          function calcMinFaixas(faixas){
+            return (faixas||[]).reduce(function(acc,f){
+              if(!f.ini||!f.fim) return acc;
+              if(typeof f==="string") return acc+50; /* legacy slot compat */
+              var p1=f.ini.split(":"),p2=f.fim.split(":");
+              var m1=parseInt(p1[0])*60+parseInt(p1[1]),m2=parseInt(p2[0])*60+parseInt(p2[1]);
+              return acc+Math.max(0,m2-m1);
+            },0);
+          }
           DIAS.forEach(function(d){
-            var slots = (prof.disp&&prof.disp[d]||[]).length;
-            var mins = slots * 50;
+            var faixas = prof.disp&&prof.disp[d]||[];
+            var mins = calcMinFaixas(faixas);
             totalMinSem += mins;
             if(mins > 0) horasPorDia[d] = mins;
           });
@@ -731,7 +778,12 @@ function App() {
             React.createElement("div",{style:{fontSize:11,color:C.txM,marginBottom:4}},
               React.createElement("b",null,"Especialidades: "),especs
             ),
-            React.createElement("div",{style:{fontSize:11,color:C.txM}},DIAS.map(function(d){return horasPorDia[d]?d.slice(0,3)+": "+fmtMin(horasPorDia[d]):null}).filter(Boolean).join(" · ")||"Sem disponibilidade")
+            React.createElement("div",{style:{fontSize:11,color:C.txM}},DIAS.map(function(d){
+              var faixas=prof.disp&&prof.disp[d]||[];
+              if(faixas.length===0) return null;
+              var txt=faixas.map(function(f){return typeof f==="string"?f:f.ini+"-"+f.fim}).join(", ");
+              return d.slice(0,3)+": "+txt;
+            }).filter(Boolean).join(" · ")||"Sem disponibilidade")
           )
         })
       )
@@ -1067,8 +1119,8 @@ function App() {
           React.createElement("div",{style:{marginBottom:18}},React.createElement(Inp,{label:"Observações",value:edit.obs||"",onChange:function(v){setEdit(Object.assign({},edit,{obs:v}))}})),
           React.createElement("div",{style:{marginBottom:18}},
             React.createElement("label",{style:{fontSize:11,fontWeight:600,color:C.txM,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:8}},"Disponibilidade"),
-            React.createElement("p",{style:{fontSize:11,color:C.txL,marginBottom:8}},"Clique nos horários. Clique no dia para marcar todos."),
-            React.createElement(DayGrid,{value:edit.disp||{},onChange:function(v){setEdit(Object.assign({},edit,{disp:v}))},color:(edit.tipo||"").indexOf("PJ")>=0?C.pp:edit.tipo==="Estagiário"?C.wr:C.bl})
+            React.createElement("p",{style:{fontSize:11,color:C.txL,marginBottom:8}},"Adicione faixas de horário para cada dia."),
+            React.createElement(DispEditor,{value:edit.disp||{},onChange:function(v){setEdit(Object.assign({},edit,{disp:v}))}})
           ),
           /* Histórico de faltas */
           function(){
