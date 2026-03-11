@@ -811,6 +811,21 @@ function App() {
         React.createElement("p",{style:{color:C.txM,fontSize:12,marginBottom:14}},"Primeiro tipo é priorizado."),
         React.createElement(ReorderList,{items:data.prioVinculo||VINCULOS,onChange:function(v){persist(Object.assign({},data,{prioVinculo:v}))}})
       ),
+      React.createElement(Crd,{style:{marginBottom:20}},
+        React.createElement("h4",{style:{margin:"0 0 8px",fontWeight:700}},"Backup dos Dados"),
+        React.createElement("p",{style:{color:C.txM,fontSize:12,marginBottom:14}},"Exporte todos os dados cadastrados em um arquivo JSON."),
+        React.createElement(Btn,{v:"primary",onClick:function(){
+          var json = JSON.stringify(data, null, 2);
+          var blob = new Blob([json], {type: "application/json"});
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = "clinica-backup-" + new Date().toISOString().slice(0,10) + ".json";
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast("Backup exportado com sucesso!");
+        }},"📥 Exportar Dados (JSON)")
+      ),
       React.createElement(Crd,{style:{borderLeft:"4px solid "+C.er}},
         React.createElement("h4",{style:{margin:"0 0 8px",fontWeight:700,color:C.er}},"Zona de Perigo"),
         React.createElement(Btn,{v:"er",onClick:function(){persist(getEmpty())}},"🔄 Resetar Tudo")
