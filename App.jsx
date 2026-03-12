@@ -396,8 +396,9 @@ function App() {
     var aus = data.ausencias || {};
 
     return data.profissionais.filter(function(prof){
-      /* Filter desligados */
+      /* Filter desligados and blocked from sessions */
       if(prof.dataDesligamento) return false;
+      if(prof.bloqSessao) return false;
       /* Filter by specialty match */
       if(especsNeeded.length > 0){
         var profEspecs = prof.especialidades || [];
@@ -798,6 +799,7 @@ function App() {
                 React.createElement("div",{style:{fontSize:15,fontWeight:700}},prof.nome),
                 React.createElement("div",{style:{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}},
                   isDesligado&&React.createElement(Badge,{v:"er"},"Desligado"),
+                  prof.bloqSessao&&React.createElement(Badge,{v:"er"},"🚫 Bloq. Sessões"),
                   React.createElement(Badge,{v:vv},prof.tipo),
                   React.createElement(Badge,{v:"bl"},fmtMin(totalMinSem)+"/sem"),
                   faltasProf>0&&React.createElement(Badge,{v:"er"},faltasProf+" falta(s)"),
@@ -1175,6 +1177,15 @@ function App() {
             React.createElement(MultiChip,{label:"Especialidades",value:edit.especialidades||[],onChange:function(v){setEdit(Object.assign({},edit,{especialidades:v}))},options:data.especialidades||[]})
           ),
           React.createElement("div",{style:{marginBottom:18}},React.createElement(Inp,{label:"Observações",value:edit.obs||"",onChange:function(v){setEdit(Object.assign({},edit,{obs:v}))}})),
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:18,padding:"10px 14px",background:edit.bloqSessao?C.erBg:C.scBg,borderRadius:10,border:"1px solid "+(edit.bloqSessao?C.er+"44":C.sc+"44"),cursor:"pointer"},onClick:function(){setEdit(Object.assign({},edit,{bloqSessao:!edit.bloqSessao}))}},
+            React.createElement("div",{style:{width:40,height:22,borderRadius:11,background:edit.bloqSessao?C.er:C.sc,position:"relative",transition:"background .2s"}},
+              React.createElement("div",{style:{width:18,height:18,borderRadius:9,background:"#fff",position:"absolute",top:2,left:edit.bloqSessao?20:2,transition:"left .2s"}})
+            ),
+            React.createElement("div",null,
+              React.createElement("div",{style:{fontSize:13,fontWeight:600,color:edit.bloqSessao?C.er:C.sc}},edit.bloqSessao?"🚫 Bloqueado para sessões":"✅ Disponível para sessões"),
+              React.createElement("div",{style:{fontSize:11,color:C.txL}},edit.bloqSessao?"Esta pessoa NÃO aparecerá como opção ao criar sessões":"Esta pessoa aparecerá normalmente nas opções de sessão")
+            )
+          ),
           React.createElement("div",{style:{marginBottom:18}},
             React.createElement("label",{style:{fontSize:11,fontWeight:600,color:C.txM,textTransform:"uppercase",letterSpacing:.5,display:"block",marginBottom:8}},"Disponibilidade"),
             React.createElement("p",{style:{fontSize:11,color:C.txL,marginBottom:8}},"Adicione faixas de horário para cada dia."),
