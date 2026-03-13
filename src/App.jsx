@@ -610,6 +610,70 @@ function App() {
           })
         )
       ),
+      /* ── Mapa de Ocupação por Horário ── */
+      data.profissionais.length>0&&data.sessoes.length>0&&function(){
+        var profsAtivos=data.profissionais.filter(function(p){return !p.dataDesligamento&&!p.bloqSessao});
+        var aus=data.ausencias||{};
+        /* Collect all unique time slots from sessions */
+        var slotsSet={};
+        data.sessoes.forEach(function(s){if(s.horaInicio&&s.horaFim)slotsSet[s.horaInicio+"|"+s.horaFim]=true});
+        var slots=Object.keys(slotsSet).sort().map(function(k){var p=k.split("|");return{ini:p[0],fim:p[1]}});
+        return React.createElement(Crd,{style:{marginTop:24,overflowX:"auto"}},
+          React.createElement("h4",{style:{margin:"0 0 4px",fontSize:15,fontWeight:700,color:C.pri}},"🔥 Mapa de Ocupação por Horário"),
+          React.createElement("p",{style:{color:C.txM,fontSize:11,margin:"0 0 12px"}},"Ocupados / Disponíveis por faixa · ",
+            React.createElement("span",{style:{display:"inline-block",width:10,height:10,borderRadius:2,background:C.okBg,marginRight:2,verticalAlign:"middle"}}),React.createElement("span",{style:{fontSize:10,marginRight:8}},"Tranquilo"),
+            React.createElement("span",{style:{display:"inline-block",width:10,height:10,borderRadius:2,background:C.wrBg,marginRight:2,verticalAlign:"middle"}}),React.createElement("span",{style:{fontSize:10,marginRight:8}},"Atenção"),
+            React.createElement("span",{style:{display:"inline-block",width:10,height:10,borderRadius:2,background:C.erBg,marginRight:2,verticalAlign:"middle"}}),React.createElement("span",{style:{fontSize:10}},"Gargalo")
+          ),
+          React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11}},
+            React.createElement("thead",null,
+              React.createElement("tr",{style:{background:C.prBg}},
+                React.createElement("th",{style:{padding:"8px 10px",textAlign:"left",borderBottom:"2px solid "+C.bd,fontWeight:700,position:"sticky",left:0,background:C.prBg,minWidth:90}},"Horário"),
+                DIAS.map(function(d){return React.createElement("th",{key:d,style:{padding:"8px 6px",textAlign:"center",borderBottom:"2px solid "+C.bd,fontWeight:700,minWidth:120}},d)})
+              )
+            ),
+            React.createElement("tbody",null,
+              slots.map(function(slot,si){
+                return React.createElement("tr",{key:si,style:{borderBottom:"1px solid "+C.bd,background:si%2===0?"#fff":"#fafaf8"}},
+                  React.createElement("td",{style:{padding:"6px 10px",fontFamily:"monospace",fontWeight:700,fontSize:11,position:"sticky",left:0,background:si%2===0?"#fff":"#fafaf8",whiteSpace:"nowrap"}},slot.ini+" - "+slot.fim),
+                  DIAS.map(function(dia){
+                    /* Count available profs at this slot */
+                    var disponiveis=profsAtivos.filter(function(prof){
+                      if(aus[prof.id+"-"+dia]) return false;
+                      var faixas=(prof.disp&&prof.disp[dia])||[];
+                      if(faixas.length===0) return false;
+                      return faixas.some(function(f){return f.ini<=slot.ini&&f.fim>=slot.fim});
+                    });
+                    /* Count busy profs at this slot */
+                    var ocupados=data.sessoes.filter(function(s){
+                      if(s.dia!==dia) return false;
+                      if(!s.profissionalId) return false;
+                      return s.horaInicio<slot.fim&&s.horaFim>slot.ini;
+                    });
+                    /* Unique busy prof ids */
+                    var busyIds={};
+                    ocupados.forEach(function(s){busyIds[s.profissionalId]=true});
+                    var nBusy=Object.keys(busyIds).length;
+                    var nDisp=disponiveis.length;
+                    var nLivre=Math.max(0,nDisp-nBusy);
+                    var pct=nDisp>0?Math.round(nBusy/nDisp*100):0;
+                    var bg=nDisp===0?"#f3f4f6":pct>=85?"#fee2e2":pct>=60?"#fef3c7":"#d1fae5";
+                    var txtColor=nDisp===0?C.txL:pct>=85?C.er:pct>=60?C.wr:C.ok;
+                    return React.createElement("td",{key:dia,style:{padding:"6px",textAlign:"center",background:bg}},
+                      nDisp===0
+                        ?React.createElement("span",{style:{color:C.txL,fontSize:10}},"-")
+                        :React.createElement("div",null,
+                          React.createElement("div",{style:{fontSize:13,fontWeight:800,color:txtColor}},nBusy+"/"+nDisp),
+                          React.createElement("div",{style:{fontSize:9,color:C.txM}},nLivre+" livre"+(nLivre!==1?"s":""))
+                        )
+                    );
+                  })
+                );
+              })
+            )
+          )
+        );
+      }(),
       /* ── Painel Disponibilidade dos Profissionais ── */
       data.profissionais.length>0&&React.createElement(Crd,{style:{marginTop:24,overflowX:"auto"}},
         React.createElement("h4",{style:{margin:"0 0 12px",fontSize:15,fontWeight:700,color:C.pri}},"👩‍⚕️ Disponibilidade dos Profissionais"),
