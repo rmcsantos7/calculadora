@@ -1077,19 +1077,34 @@ function App() {
             try{
               var imp=JSON.parse(ev.target.result);
               var nd=Object.assign({},data);
-              /* Merge pacientes (skip duplicates by name) */
-              var existNames=(nd.pacientes||[]).map(function(p){return p.nome.toLowerCase()});
-              var newPacs=(imp.pacientes||[]).filter(function(p){return existNames.indexOf(p.nome.toLowerCase())<0});
+              /* Build ID remap tables */
+              var pacIdMap={}, salaIdMap={};
+              /* Merge pacientes (skip duplicates by name, remap IDs) */
+              var newPacs=[];
+              (imp.pacientes||[]).forEach(function(p){
+                var exist=(nd.pacientes||[]).find(function(x){return x.nome.toLowerCase()===p.nome.toLowerCase()});
+                if(exist){ pacIdMap[p.id]=exist.id; }
+                else{ pacIdMap[p.id]=p.id; newPacs.push(p); }
+              });
               nd.pacientes=(nd.pacientes||[]).concat(newPacs);
-              /* Merge salas (skip duplicates by numero) */
-              var existNums=(nd.salas||[]).map(function(s){return s.numero});
-              var newSalas=(imp.salas||[]).filter(function(s){return existNums.indexOf(s.numero)<0});
+              /* Merge salas (skip duplicates by nome, remap IDs) */
+              var newSalas=[];
+              (imp.salas||[]).forEach(function(s){
+                var exist=(nd.salas||[]).find(function(x){return x.nome===s.nome||(x.numero&&s.numero&&String(x.numero)===String(s.numero))});
+                if(exist){ salaIdMap[s.id]=exist.id; }
+                else{ salaIdMap[s.id]=s.id; newSalas.push(s); }
+              });
               nd.salas=(nd.salas||[]).concat(newSalas);
               /* Merge new tratamentos */
               var existTratIds=(nd.tratamentos||[]).map(function(t){return t.id});
               (imp.tratamentos||imp.newTratamentos||[]).forEach(function(t){if(existTratIds.indexOf(t.id)<0)nd.tratamentos.push(t)});
-              /* Replace sessoes (remove old imported, add new) */
-              nd.sessoes=imp.sessoes||[];
+              /* Replace sessoes with remapped IDs */
+              nd.sessoes=(imp.sessoes||[]).map(function(s){
+                return Object.assign({},s,{
+                  pacienteId:pacIdMap[s.pacienteId]||s.pacienteId,
+                  salaId:salaIdMap[s.salaId]||s.salaId
+                });
+              });
               persist(nd);
               showToast("✅ Importado: "+(imp.sessoes||[]).length+" sessões, "+newPacs.length+" pacientes, "+newSalas.length+" salas");
             }catch(err){showToast("❌ Erro ao importar: "+err.message)}
