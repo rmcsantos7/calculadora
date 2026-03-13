@@ -348,8 +348,8 @@ function App() {
   /* ── Sessão CRUD ── */
   function saveSessao(s){
     var ex=data.sessoes.find(function(x){return x.id===s.id});
-    /* Se tem profissional → confirmado, senão → aguardando */
-    var status = s.profissionalId ? "confirmado" : "aguardando";
+    /* Se tem profissional E sala → confirmado, senão → aguardando */
+    var status = (s.profissionalId && s.salaId) ? "confirmado" : "aguardando";
     var ns = Object.assign({},s,{status:status});
     var arr=ex?data.sessoes.map(function(x){return x.id===s.id?ns:x}):data.sessoes.concat(Object.assign({},ns,{id:uid()}));
     persist(Object.assign({},data,{sessoes:arr}));setModal(null);setEdit(null);
@@ -672,21 +672,28 @@ function App() {
                   var trat=data.tratamentos.find(function(t){return t.id===s.tratamentoId});
                   var sala=data.salas.find(function(sl){return sl.id===s.salaId});
                   var isAguardando = s.status==="aguardando";
+                  var semProf = !s.profissionalId;
+                  var semSala = !s.salaId;
                   var bg = isAguardando?C.wrBg:i%2===0?"#fff":C.bg;
 
                   return React.createElement("tr",{key:s.id,style:{borderBottom:"1px solid "+C.bd,background:bg}},
                     React.createElement("td",{style:{padding:"9px 12px",fontFamily:"monospace",fontWeight:600,fontSize:11}},(s.horaInicio||"")+" às "+(s.horaFim||"")),
                     React.createElement("td",{style:{padding:"9px 12px",fontWeight:600}},pac?pac.nome:"—"),
                     React.createElement("td",{style:{padding:"9px 12px"}},trat?React.createElement(Badge,{v:"pp"},trat.nome):React.createElement("span",{style:{color:C.txL}},"—")),
-                    React.createElement("td",{style:{padding:"9px 12px",fontWeight:isAguardando?700:500,color:isAguardando?C.wr:C.tx}},
-                      isAguardando
+                    React.createElement("td",{style:{padding:"9px 12px",fontWeight:semProf?700:500,color:semProf?C.wr:C.tx}},
+                      semProf
                         ?React.createElement("span",{style:{color:C.wr}},"⏳ Aguardando")
                         :prof?prof.nome:"—"
                     ),
                     React.createElement("td",{style:{padding:"9px 12px"}},
-                      React.createElement(Badge,{v:isAguardando?"wr":"ok"},isAguardando?"Aguardando":"Confirmado")
+                      isAguardando
+                        ?React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:2}},
+                          semProf&&React.createElement(Badge,{v:"wr"},"Aguard. Profissional"),
+                          semSala&&React.createElement(Badge,{v:"ac"},"Aguard. Sala")
+                        )
+                        :React.createElement(Badge,{v:"ok"},"Confirmado")
                     ),
-                    React.createElement("td",{style:{padding:"9px 12px",color:C.txM,fontSize:11}},sala?"Sala "+sala.numero:"—"),
+                    React.createElement("td",{style:{padding:"9px 12px",color:semSala?C.wr:C.txM,fontSize:11,fontWeight:semSala?700:400}},sala?"Sala "+sala.numero:React.createElement("span",{style:{color:C.wr}},"⏳ Sem sala")),
                     React.createElement("td",{style:{padding:"9px 12px"}},
                       React.createElement("div",{style:{display:"flex",gap:4}},
                         React.createElement(Btn,{v:"df",sz:"sm",onClick:function(){
@@ -1125,9 +1132,10 @@ function App() {
               )
             );
           }(),
-          edit.profissionalId===""&&edit.tratamentoId&&React.createElement("div",{style:{padding:14,background:C.wrBg,borderRadius:10,marginBottom:18}},
-            React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.wr,marginBottom:4}},"⏳ Status: Aguardando Profissional Disponível"),
-            React.createElement("div",{style:{fontSize:12,color:C.wr}},"Você poderá voltar nesta sessão para atribuir um profissional quando houver disponibilidade.")
+          (edit.profissionalId===""||!edit.salaId)&&edit.tratamentoId&&React.createElement("div",{style:{padding:14,background:C.wrBg,borderRadius:10,marginBottom:18}},
+            React.createElement("div",{style:{fontSize:13,fontWeight:700,color:C.wr,marginBottom:4}},"⏳ Status: Aguardando"),
+            edit.profissionalId===""&&React.createElement("div",{style:{fontSize:12,color:C.wr}},"• Sem profissional — sessão ficará como 'Aguardando Profissional Disponível'."),
+            !edit.salaId&&React.createElement("div",{style:{fontSize:12,color:C.wr}},"• Sem sala — sessão ficará como 'Aguardando Sala Disponível'.")
           ),
           React.createElement("div",{style:{marginBottom:18}},
             React.createElement(Inp,{label:"Observações",value:edit.obs||"",onChange:function(v){setEdit(Object.assign({},edit,{obs:v}))}})
