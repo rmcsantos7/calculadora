@@ -608,6 +608,73 @@ function App() {
             return React.createElement(Badge,{key:s.id,v:"wr"},(s.dia||"")+" "+(s.horaInicio||"")+" — "+(pac?pac.nome:"?")+" ("+(trat?trat.nome:"")+")");
           })
         )
+      ),
+      /* ── Painel Disponibilidade dos Profissionais ── */
+      data.profissionais.length>0&&React.createElement(Crd,{style:{marginTop:24,overflowX:"auto"}},
+        React.createElement("h4",{style:{margin:"0 0 12px",fontSize:15,fontWeight:700,color:C.pri}},"👩‍⚕️ Disponibilidade dos Profissionais"),
+        React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:12}},
+          React.createElement("thead",null,
+            React.createElement("tr",{style:{background:C.prBg}},
+              React.createElement("th",{style:{padding:"8px 10px",textAlign:"left",borderBottom:"2px solid "+C.bd,fontWeight:700,position:"sticky",left:0,background:C.prBg,minWidth:160}},"Profissional"),
+              DIAS.map(function(d){return React.createElement("th",{key:d,style:{padding:"8px 6px",textAlign:"center",borderBottom:"2px solid "+C.bd,fontWeight:700,minWidth:100}},d.slice(0,3))}),
+              React.createElement("th",{style:{padding:"8px 6px",textAlign:"center",borderBottom:"2px solid "+C.bd,fontWeight:700,minWidth:80}},"Total/Sem")
+            )
+          ),
+          React.createElement("tbody",null,
+            data.profissionais.filter(function(p){return !p.dataDesligamento}).map(function(prof,idx){
+              var aus = data.ausencias||{};
+              var totalDispMin=0, totalSessMin=0;
+              var diasInfo = DIAS.map(function(d){
+                var faixas = (prof.disp&&prof.disp[d])||[];
+                var dispMin = faixas.reduce(function(acc,f){
+                  if(!f.ini||!f.fim) return acc;
+                  var p1=f.ini.split(":"),p2=f.fim.split(":");
+                  return acc+Math.max(0,(parseInt(p2[0])*60+parseInt(p2[1]))-(parseInt(p1[0])*60+parseInt(p1[1])));
+                },0);
+                totalDispMin+=dispMin;
+                var sessDia = data.sessoes.filter(function(s){return s.profissionalId===prof.id&&s.dia===d});
+                var sessMin = sessDia.reduce(function(acc,s){
+                  if(!s.horaInicio||!s.horaFim) return acc;
+                  var a1=s.horaInicio.split(":"),a2=s.horaFim.split(":");
+                  return acc+Math.max(0,(parseInt(a2[0])*60+parseInt(a2[1]))-(parseInt(a1[0])*60+parseInt(a1[1])));
+                },0);
+                totalSessMin+=sessMin;
+                var isAus = aus[prof.id+"-"+d];
+                var faixasTxt = faixas.map(function(f){return f.ini+"-"+f.fim}).join(", ");
+                return {dispMin:dispMin,sessCount:sessDia.length,sessMin:sessMin,isAus:isAus,faixasTxt:faixasTxt};
+              });
+              function fmtH(m){if(m===0)return"-";var h=Math.floor(m/60);var mm=m%60;return h+"h"+(mm>0?mm+"m":"")}
+              var ocup = totalDispMin>0?Math.round(totalSessMin/totalDispMin*100):0;
+              var ocupColor = ocup>=90?C.er:ocup>=70?C.wr:C.ok;
+              return React.createElement("tr",{key:prof.id,style:{background:idx%2===0?"#fff":"#fafaf8",borderBottom:"1px solid "+C.bd}},
+                React.createElement("td",{style:{padding:"6px 10px",fontWeight:600,position:"sticky",left:0,background:idx%2===0?"#fff":"#fafaf8",whiteSpace:"nowrap"}},
+                  prof.nome,
+                  prof.bloqSessao&&React.createElement("span",{style:{color:C.er,fontSize:10,marginLeft:4}},"🚫")
+                ),
+                diasInfo.map(function(di,j){
+                  var bg = di.isAus?"#fee2e2":di.dispMin===0?"#f3f4f6":"transparent";
+                  return React.createElement("td",{key:j,style:{padding:"6px",textAlign:"center",background:bg,verticalAlign:"top"}},
+                    di.isAus
+                      ?React.createElement("span",{style:{color:C.er,fontWeight:700,fontSize:11}},"Ausente")
+                      :di.dispMin===0
+                        ?React.createElement("span",{style:{color:C.txL,fontSize:10}},"-")
+                        :React.createElement("div",null,
+                          React.createElement("div",{style:{fontSize:10,color:C.txM}},di.faixasTxt),
+                          React.createElement("div",{style:{fontSize:11,fontWeight:600,marginTop:2}},
+                            di.sessCount+" sess",
+                            React.createElement("span",{style:{color:C.txM,fontWeight:400}}," ("+fmtH(di.sessMin)+")")
+                          )
+                        )
+                  );
+                }),
+                React.createElement("td",{style:{padding:"6px",textAlign:"center"}},
+                  React.createElement("div",{style:{fontWeight:700,fontSize:12}},fmtH(totalDispMin)),
+                  React.createElement("div",{style:{fontSize:11,color:ocupColor,fontWeight:700}},ocup+"%"," ocup.")
+                )
+              );
+            })
+          )
+        )
       )
     );
   }
