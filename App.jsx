@@ -1087,9 +1087,9 @@ function App() {
               nd.salas=(nd.salas||[]).concat(newSalas);
               /* Merge new tratamentos */
               var existTratIds=(nd.tratamentos||[]).map(function(t){return t.id});
-              (imp.newTratamentos||[]).forEach(function(t){if(existTratIds.indexOf(t.id)<0)nd.tratamentos.push(t)});
-              /* Add sessoes */
-              nd.sessoes=(nd.sessoes||[]).concat(imp.sessoes||[]);
+              (imp.tratamentos||imp.newTratamentos||[]).forEach(function(t){if(existTratIds.indexOf(t.id)<0)nd.tratamentos.push(t)});
+              /* Replace sessoes (remove old imported, add new) */
+              nd.sessoes=imp.sessoes||[];
               persist(nd);
               showToast("✅ Importado: "+(imp.sessoes||[]).length+" sessões, "+newPacs.length+" pacientes, "+newSalas.length+" salas");
             }catch(err){showToast("❌ Erro ao importar: "+err.message)}
