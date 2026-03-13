@@ -361,103 +361,120 @@
       "id": "s12",
       "nome": "Sala 1",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "1"
     },
     {
       "id": "s13",
       "nome": "Sala 2",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "2"
     },
     {
       "id": "s14",
       "nome": "Sala 3",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "3"
     },
     {
       "id": "s15",
       "nome": "Sala 4",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "4"
     },
     {
       "id": "s16",
       "nome": "Sala 5",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "5"
     },
     {
       "id": "s17",
       "nome": "Sala 6",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "6"
     },
     {
       "id": "s05",
       "nome": "Sala 7",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "7"
     },
     {
       "id": "s04",
       "nome": "Sala 8",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "8"
     },
     {
       "id": "s02",
       "nome": "Sala 9",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "9"
     },
     {
       "id": "s01",
       "nome": "Sala 10",
       "andar": "Térreo",
-      "descricao": ""
+      "descricao": "",
+      "numero": "10"
     },
     {
       "id": "s06",
       "nome": "Sala 12",
       "andar": "Superior",
-      "descricao": ""
+      "descricao": "",
+      "numero": "12"
     },
     {
       "id": "s07",
       "nome": "Sala 13",
       "andar": "Superior",
-      "descricao": ""
+      "descricao": "",
+      "numero": "13"
     },
     {
       "id": "s08",
       "nome": "Sala 14",
       "andar": "Superior",
-      "descricao": ""
+      "descricao": "",
+      "numero": "14"
     },
     {
       "id": "s03",
       "nome": "Sala 15",
       "andar": "Superior",
-      "descricao": ""
+      "descricao": "",
+      "numero": "15"
     },
     {
       "id": "s09",
       "nome": "Sala 17",
       "andar": "Superior",
-      "descricao": ""
+      "descricao": "",
+      "numero": "17"
     },
     {
       "id": "s10",
       "nome": "Sala 18",
       "andar": "Superior",
-      "descricao": ""
+      "descricao": "",
+      "numero": "18"
     },
     {
       "id": "s11",
       "nome": "Sala 19",
       "andar": "Superior",
-      "descricao": ""
+      "descricao": "",
+      "numero": "19"
     }
   ],
   "tratamentos": [],
