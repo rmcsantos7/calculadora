@@ -1137,15 +1137,23 @@ function App() {
                 else{ pacIdMap[p.id]=p.id; newPacs.push(p); }
               });
               nd.pacientes=(nd.pacientes||[]).concat(newPacs);
-              /* Replace salas with imported ones */
-              if(imp.salas&&imp.salas.length>0) nd.salas=imp.salas;
+              /* Merge salas: match by numero, remap IDs, keep existing properties */
+              var salaIdMap={};
+              var newSalas=[];
+              (imp.salas||[]).forEach(function(s){
+                var exist=(nd.salas||[]).find(function(x){return x.numero&&s.numero&&String(x.numero)===String(s.numero)});
+                if(exist){ salaIdMap[s.id]=exist.id; }
+                else{ salaIdMap[s.id]=s.id; newSalas.push(s); }
+              });
+              nd.salas=(nd.salas||[]).concat(newSalas);
               /* Merge new tratamentos */
               var existTratIds=(nd.tratamentos||[]).map(function(t){return t.id});
               (imp.tratamentos||imp.newTratamentos||[]).forEach(function(t){if(existTratIds.indexOf(t.id)<0)nd.tratamentos.push(t)});
               /* Replace sessoes with remapped IDs */
               nd.sessoes=(imp.sessoes||[]).map(function(s){
                 return Object.assign({},s,{
-                  pacienteId:pacIdMap[s.pacienteId]||s.pacienteId
+                  pacienteId:pacIdMap[s.pacienteId]||s.pacienteId,
+                  salaId:salaIdMap[s.salaId]||s.salaId
                 });
               });
               persist(nd);
