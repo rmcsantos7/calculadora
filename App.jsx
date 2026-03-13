@@ -1137,11 +1137,15 @@ function App() {
                 else{ pacIdMap[p.id]=p.id; newPacs.push(p); }
               });
               nd.pacientes=(nd.pacientes||[]).concat(newPacs);
-              /* Merge salas (skip duplicates by nome, remap IDs) */
+              /* Merge salas (skip duplicates by nome, remap IDs, update missing fields) */
               var newSalas=[];
               (imp.salas||[]).forEach(function(s){
                 var exist=(nd.salas||[]).find(function(x){return x.nome===s.nome||(x.numero&&s.numero&&String(x.numero)===String(s.numero))});
-                if(exist){ salaIdMap[s.id]=exist.id; }
+                if(exist){
+                  salaIdMap[s.id]=exist.id;
+                  if(!exist.numero&&s.numero) exist.numero=s.numero;
+                  if(!exist.andar&&s.andar) exist.andar=s.andar;
+                }
                 else{ salaIdMap[s.id]=s.id; newSalas.push(s); }
               });
               nd.salas=(nd.salas||[]).concat(newSalas);
