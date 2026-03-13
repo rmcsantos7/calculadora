@@ -993,6 +993,38 @@ function App() {
           showToast("Backup exportado com sucesso!");
         }},"📥 Exportar Dados (JSON)")
       ),
+      React.createElement(Crd,{style:{marginBottom:20,borderLeft:"4px solid "+C.bl}},
+        React.createElement("h4",{style:{margin:"0 0 8px",fontWeight:700,color:C.bl}},"Importar Sessões (JSON)"),
+        React.createElement("p",{style:{color:C.txM,fontSize:12,marginBottom:14}},"Importe sessões, pacientes e salas a partir de um arquivo JSON gerado pelo script de importação."),
+        React.createElement("input",{ref:fileRef,type:"file",accept:".json",style:{display:"none"},onChange:function(e){
+          var file=e.target.files[0];if(!file)return;
+          var reader=new FileReader();
+          reader.onload=function(ev){
+            try{
+              var imp=JSON.parse(ev.target.result);
+              var nd=Object.assign({},data);
+              /* Merge pacientes (skip duplicates by name) */
+              var existNames=(nd.pacientes||[]).map(function(p){return p.nome.toLowerCase()});
+              var newPacs=(imp.pacientes||[]).filter(function(p){return existNames.indexOf(p.nome.toLowerCase())<0});
+              nd.pacientes=(nd.pacientes||[]).concat(newPacs);
+              /* Merge salas (skip duplicates by numero) */
+              var existNums=(nd.salas||[]).map(function(s){return s.numero});
+              var newSalas=(imp.salas||[]).filter(function(s){return existNums.indexOf(s.numero)<0});
+              nd.salas=(nd.salas||[]).concat(newSalas);
+              /* Merge new tratamentos */
+              var existTratIds=(nd.tratamentos||[]).map(function(t){return t.id});
+              (imp.newTratamentos||[]).forEach(function(t){if(existTratIds.indexOf(t.id)<0)nd.tratamentos.push(t)});
+              /* Add sessoes */
+              nd.sessoes=(nd.sessoes||[]).concat(imp.sessoes||[]);
+              persist(nd);
+              showToast("✅ Importado: "+(imp.sessoes||[]).length+" sessões, "+newPacs.length+" pacientes, "+newSalas.length+" salas");
+            }catch(err){showToast("❌ Erro ao importar: "+err.message)}
+          };
+          reader.readAsText(file);
+          e.target.value="";
+        }}),
+        React.createElement(Btn,{v:"bl",onClick:function(){fileRef.current&&fileRef.current.click()}},"📂 Selecionar Arquivo JSON")
+      ),
       React.createElement(Crd,{style:{borderLeft:"4px solid "+C.er}},
         React.createElement("h4",{style:{margin:"0 0 8px",fontWeight:700,color:C.er}},"Zona de Perigo"),
         React.createElement(Btn,{v:"er",onClick:function(){persist(getEmpty())}},"🔄 Resetar Tudo")
