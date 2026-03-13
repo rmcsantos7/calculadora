@@ -622,7 +622,7 @@ function App() {
             )
           ),
           React.createElement("tbody",null,
-            data.profissionais.filter(function(p){return !p.dataDesligamento}).map(function(prof,idx){
+            data.profissionais.filter(function(p){return !p.dataDesligamento&&!p.bloqSessao}).map(function(prof,idx){
               var aus = data.ausencias||{};
               var totalDispMin=0, totalSessMin=0;
               var diasInfo = DIAS.map(function(d){
