@@ -817,11 +817,13 @@ function App() {
                           var pac=data.pacientes.find(function(p){return p.id===s.pacienteId});
                           var prof=data.profissionais.find(function(p){return p.id===s.profissionalId});
                           var sala=data.salas.find(function(sl){return sl.id===s.salaId});
+                          var trat=data.tratamentos.find(function(t){return t.id===s.tratamentoId});
                           var isAg=!s.profissionalId||!s.salaId;
                           return React.createElement("div",{key:s.id,onClick:function(){setEdit(Object.assign({},s));setModal("sessao")},style:{padding:"4px 6px",marginBottom:3,borderRadius:6,cursor:"pointer",fontSize:10,lineHeight:"1.4",background:isAg?C.wrBg:C.okBg,borderLeft:"3px solid "+(isAg?C.wr:C.ok)}},
                             React.createElement("div",{style:{fontWeight:700,fontSize:11}},pac?pac.nome:"—"),
                             React.createElement("div",{style:{color:C.txM}},prof?prof.nome:React.createElement("span",{style:{color:C.wr}},"⏳ Aguard. Prof.")),
-                            React.createElement("div",{style:{color:C.txM}},sala?"Sala "+sala.numero:React.createElement("span",{style:{color:C.wr}},"⏳ Sem sala"))
+                            React.createElement("div",{style:{color:C.txM}},sala?"Sala "+sala.numero+(trat?" / "+trat.nome:""):React.createElement("span",{style:{color:C.wr}},"⏳ Sem sala")),
+                            !sala&&trat&&React.createElement("div",{style:{color:C.pp,fontSize:9}},trat.nome)
                           );
                         })
                     );
