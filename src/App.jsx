@@ -526,8 +526,8 @@ function App() {
 
   /* ── Stats ── */
   var totalSessoes = data.sessoes.length;
-  var sessoesConfirmadas = data.sessoes.filter(function(s){return s.status==="confirmado"}).length;
-  var sessoesAguardando = data.sessoes.filter(function(s){return s.status==="aguardando"}).length;
+  var sessoesConfirmadas = data.sessoes.filter(function(s){return s.profissionalId&&s.salaId}).length;
+  var sessoesAguardando = totalSessoes - sessoesConfirmadas;
   var ausN = Object.values(data.ausencias||{}).filter(Boolean).length;
 
   function exportCSV(){
@@ -601,9 +601,9 @@ function App() {
         )
       ),
       sessoesAguardando>0&&React.createElement(Crd,{style:{marginTop:16,borderLeft:"4px solid "+C.wr}},
-        React.createElement("h4",{style:{margin:"0 0 8px",fontSize:14,fontWeight:700,color:C.wr}},"⏳ Sessões Aguardando Profissional"),
+        React.createElement("h4",{style:{margin:"0 0 8px",fontSize:14,fontWeight:700,color:C.wr}},"⏳ Sessões Aguardando ("+sessoesAguardando+")"),
         React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6}},
-          data.sessoes.filter(function(s){return s.status==="aguardando"}).slice(0,12).map(function(s){
+          data.sessoes.filter(function(s){return !s.profissionalId||!s.salaId}).slice(0,12).map(function(s){
             var pac=data.pacientes.find(function(p){return p.id===s.pacienteId});
             var trat=data.tratamentos.find(function(t){return t.id===s.tratamentoId});
             return React.createElement(Badge,{key:s.id,v:"wr"},(s.dia||"")+" "+(s.horaInicio||"")+" — "+(pac?pac.nome:"?")+" ("+(trat?trat.nome:"")+")");
@@ -817,7 +817,7 @@ function App() {
                           var pac=data.pacientes.find(function(p){return p.id===s.pacienteId});
                           var prof=data.profissionais.find(function(p){return p.id===s.profissionalId});
                           var sala=data.salas.find(function(sl){return sl.id===s.salaId});
-                          var isAg=s.status==="aguardando";
+                          var isAg=!s.profissionalId||!s.salaId;
                           return React.createElement("div",{key:s.id,onClick:function(){setEdit(Object.assign({},s));setModal("sessao")},style:{padding:"4px 6px",marginBottom:3,borderRadius:6,cursor:"pointer",fontSize:10,lineHeight:"1.4",background:isAg?C.wrBg:C.okBg,borderLeft:"3px solid "+(isAg?C.wr:C.ok)}},
                             React.createElement("div",{style:{fontWeight:700,fontSize:11}},pac?pac.nome:"—"),
                             React.createElement("div",{style:{color:C.txM}},prof?prof.nome:React.createElement("span",{style:{color:C.wr}},"⏳ Aguard. Prof.")),
@@ -852,9 +852,9 @@ function App() {
                   var prof=data.profissionais.find(function(p){return p.id===s.profissionalId});
                   var trat=data.tratamentos.find(function(t){return t.id===s.tratamentoId});
                   var sala=data.salas.find(function(sl){return sl.id===s.salaId});
-                  var isAguardando = s.status==="aguardando";
                   var semProf = !s.profissionalId;
                   var semSala = !s.salaId;
+                  var isAguardando = semProf||semSala;
                   var bg = isAguardando?C.wrBg:i%2===0?"#fff":C.bg;
 
                   return React.createElement("tr",{key:s.id,style:{borderBottom:"1px solid "+C.bd,background:bg}},
