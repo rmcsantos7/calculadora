@@ -1118,46 +1118,58 @@ function App() {
         }},"📥 Exportar Dados (JSON)")
       ),
       React.createElement(Crd,{style:{marginBottom:20,borderLeft:"4px solid "+C.bl}},
-        React.createElement("h4",{style:{margin:"0 0 8px",fontWeight:700,color:C.bl}},"Importar Sessões (JSON)"),
-        React.createElement("p",{style:{color:C.txM,fontSize:12,marginBottom:14}},"Importe sessões, pacientes e salas a partir de um arquivo JSON gerado pelo script de importação."),
+        React.createElement("h4",{style:{margin:"0 0 8px",fontWeight:700,color:C.bl}},"Importar JSON"),
+        React.createElement("p",{style:{color:C.txM,fontSize:12,marginBottom:14}},"Importe um backup completo ou apenas sessões. Se o arquivo contiver profissionais, salas, pacientes e tratamentos, substitui tudo. Senão, faz merge."),
         React.createElement("input",{ref:fileRef,type:"file",accept:".json",style:{display:"none"},onChange:function(e){
           var file=e.target.files[0];if(!file)return;
           var reader=new FileReader();
           reader.onload=function(ev){
             try{
               var imp=JSON.parse(ev.target.result);
-              var nd=Object.assign({},data);
-              /* Build ID remap tables */
-              var pacIdMap={};
-              /* Merge pacientes (skip duplicates by name, remap IDs) */
-              var newPacs=[];
-              (imp.pacientes||[]).forEach(function(p){
-                var exist=(nd.pacientes||[]).find(function(x){return x.nome.toLowerCase()===p.nome.toLowerCase()});
-                if(exist){ pacIdMap[p.id]=exist.id; }
-                else{ pacIdMap[p.id]=p.id; newPacs.push(p); }
-              });
-              nd.pacientes=(nd.pacientes||[]).concat(newPacs);
-              /* Merge salas: match by numero, remap IDs, keep existing properties */
-              var salaIdMap={};
-              var newSalas=[];
-              (imp.salas||[]).forEach(function(s){
-                var exist=(nd.salas||[]).find(function(x){return x.numero&&s.numero&&String(x.numero)===String(s.numero)});
-                if(exist){ salaIdMap[s.id]=exist.id; }
-                else{ salaIdMap[s.id]=s.id; newSalas.push(s); }
-              });
-              nd.salas=(nd.salas||[]).concat(newSalas);
-              /* Merge new tratamentos */
-              var existTratIds=(nd.tratamentos||[]).map(function(t){return t.id});
-              (imp.tratamentos||imp.newTratamentos||[]).forEach(function(t){if(existTratIds.indexOf(t.id)<0)nd.tratamentos.push(t)});
-              /* Replace sessoes with remapped IDs */
-              nd.sessoes=(imp.sessoes||[]).map(function(s){
-                return Object.assign({},s,{
-                  pacienteId:pacIdMap[s.pacienteId]||s.pacienteId,
-                  salaId:salaIdMap[s.salaId]||s.salaId
+              /* Detect full backup: has profissionais = replace everything */
+              if(imp.profissionais&&imp.profissionais.length>0){
+                var nd=Object.assign({},data);
+                if(imp.salas) nd.salas=imp.salas;
+                if(imp.pacientes) nd.pacientes=imp.pacientes;
+                if(imp.profissionais) nd.profissionais=imp.profissionais;
+                if(imp.tratamentos) nd.tratamentos=imp.tratamentos;
+                if(imp.especialidades) nd.especialidades=imp.especialidades;
+                if(imp.sessoes) nd.sessoes=imp.sessoes;
+                if(imp.ausencias) nd.ausencias=imp.ausencias;
+                if(imp.historicoFaltas) nd.historicoFaltas=imp.historicoFaltas;
+                if(imp.vinculos) nd.vinculos=imp.vinculos;
+                persist(nd);
+                showToast("✅ Backup restaurado: "+(imp.sessoes||[]).length+" sessões, "+(imp.pacientes||[]).length+" pacientes, "+(imp.salas||[]).length+" salas");
+              } else {
+                /* Partial import: merge pacientes/salas, replace sessoes */
+                var nd=Object.assign({},data);
+                var pacIdMap={};
+                var newPacs=[];
+                (imp.pacientes||[]).forEach(function(p){
+                  var exist=(nd.pacientes||[]).find(function(x){return x.nome.toLowerCase()===p.nome.toLowerCase()});
+                  if(exist){ pacIdMap[p.id]=exist.id; }
+                  else{ pacIdMap[p.id]=p.id; newPacs.push(p); }
                 });
-              });
-              persist(nd);
-              showToast("✅ Importado: "+(imp.sessoes||[]).length+" sessões, "+newPacs.length+" pacientes, "+newSalas.length+" salas");
+                nd.pacientes=(nd.pacientes||[]).concat(newPacs);
+                var salaIdMap={};
+                var newSalas=[];
+                (imp.salas||[]).forEach(function(s){
+                  var exist=(nd.salas||[]).find(function(x){return x.numero&&s.numero&&String(x.numero)===String(s.numero)});
+                  if(exist){ salaIdMap[s.id]=exist.id; }
+                  else{ salaIdMap[s.id]=s.id; newSalas.push(s); }
+                });
+                nd.salas=(nd.salas||[]).concat(newSalas);
+                var existTratIds=(nd.tratamentos||[]).map(function(t){return t.id});
+                (imp.tratamentos||[]).forEach(function(t){if(existTratIds.indexOf(t.id)<0)nd.tratamentos.push(t)});
+                nd.sessoes=(imp.sessoes||[]).map(function(s){
+                  return Object.assign({},s,{
+                    pacienteId:pacIdMap[s.pacienteId]||s.pacienteId,
+                    salaId:salaIdMap[s.salaId]||s.salaId
+                  });
+                });
+                persist(nd);
+                showToast("✅ Importado: "+(imp.sessoes||[]).length+" sessões, "+newPacs.length+" pacientes, "+newSalas.length+" salas");
+              }
             }catch(err){showToast("❌ Erro ao importar: "+err.message)}
           };
           reader.readAsText(file);
