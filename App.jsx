@@ -256,6 +256,7 @@ function App() {
   var sImpTxt = useState(""), importTxt = sImpTxt[0], setImportTxt = sImpTxt[1];
   var sMsg = useState(null), toast = sMsg[0], setToast = sMsg[1];
   var sNewVinc = useState(""), newVinc = sNewVinc[0], setNewVinc = sNewVinc[1];
+  var sVista = useState("lista"), vistaS = sVista[0], setVistaS = sVista[1];
   var fileRef = useRef(null);
 
   useEffect(function() { ldDB().then(function(d) {
@@ -695,6 +696,11 @@ function App() {
       return (a.horaInicio||"").localeCompare(b.horaInicio||"");
     });
 
+    /* Collect unique time slots for grid view */
+    var slotsSet={};
+    fil.forEach(function(s){if(s.horaInicio&&s.horaFim) slotsSet[s.horaInicio+"-"+s.horaFim]=true});
+    var slots=Object.keys(slotsSet).sort();
+
     return React.createElement("div",null,
       React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}},
         React.createElement("div",null,
@@ -703,7 +709,11 @@ function App() {
             totalSessoes+" total · ",sessoesConfirmadas," confirmada(s) · ",sessoesAguardando," aguardando"
           )
         ),
-        React.createElement("div",{style:{display:"flex",gap:8}},
+        React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+          React.createElement("div",{style:{display:"flex",border:"1.5px solid "+C.bd,borderRadius:8,overflow:"hidden"}},
+            React.createElement("button",{onClick:function(){setVistaS("lista")},style:{padding:"6px 12px",fontSize:12,fontWeight:600,border:"none",cursor:"pointer",background:vistaS==="lista"?C.pri:"#fff",color:vistaS==="lista"?"#fff":C.tx}},"📋 Lista"),
+            React.createElement("button",{onClick:function(){setVistaS("grade")},style:{padding:"6px 12px",fontSize:12,fontWeight:600,border:"none",cursor:"pointer",background:vistaS==="grade"?C.pri:"#fff",color:vistaS==="grade"?"#fff":C.tx}},"📊 Grade")
+          ),
           React.createElement(Btn,{v:"ok",onClick:exportCSV},"⬇ CSV"),
           React.createElement(Btn,{v:"pri",onClick:function(){
             setEdit({pacienteId:"",dia:"Segunda",horaInicio:"08:00",horaFim:"08:50",tratamentoId:"",profissionalId:"",salaId:"",obs:"",status:"aguardando"});
@@ -718,7 +728,47 @@ function App() {
           React.createElement("h3",{style:{margin:"0 0 8px",fontWeight:700}},"Nenhuma sessão agendada"),
           React.createElement("p",{style:{color:C.txM,fontSize:13}},"Crie sessões para agendar pacientes com profissionais")
         )
-        :DIAS.map(function(dia){
+        :vistaS==="grade"
+        ?/* ── GRADE VIEW ── */
+        React.createElement(Crd,{style:{padding:0,overflowX:"auto"}},
+          React.createElement("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:11}},
+            React.createElement("thead",null,
+              React.createElement("tr",{style:{background:C.prBg}},
+                React.createElement("th",{style:{padding:"8px 10px",textAlign:"left",borderBottom:"2px solid "+C.bd,fontWeight:700,position:"sticky",left:0,background:C.prBg,minWidth:90}},"Horário"),
+                DIAS.map(function(d){return React.createElement("th",{key:d,style:{padding:"8px 6px",textAlign:"center",borderBottom:"2px solid "+C.bd,fontWeight:700,minWidth:180}},d)})
+              )
+            ),
+            React.createElement("tbody",null,
+              slots.map(function(slot,si){
+                var parts=slot.split("-");
+                var hi=parts[0],hf=parts[1];
+                return React.createElement("tr",{key:slot,style:{borderBottom:"1px solid "+C.bd,background:si%2===0?"#fff":"#fafaf8"}},
+                  React.createElement("td",{style:{padding:"6px 10px",fontFamily:"monospace",fontWeight:700,fontSize:11,position:"sticky",left:0,background:si%2===0?"#fff":"#fafaf8",whiteSpace:"nowrap",verticalAlign:"top"}},hi+"\n"+hf),
+                  DIAS.map(function(dia){
+                    var cells=fil.filter(function(s){return s.dia===dia&&s.horaInicio===hi&&s.horaFim===hf});
+                    return React.createElement("td",{key:dia,style:{padding:"4px 6px",verticalAlign:"top",borderLeft:"1px solid "+C.bd}},
+                      cells.length===0
+                        ?React.createElement("span",{style:{color:C.txL,fontSize:10}},"-")
+                        :cells.map(function(s){
+                          var pac=data.pacientes.find(function(p){return p.id===s.pacienteId});
+                          var prof=data.profissionais.find(function(p){return p.id===s.profissionalId});
+                          var sala=data.salas.find(function(sl){return sl.id===s.salaId});
+                          var isAg=s.status==="aguardando";
+                          return React.createElement("div",{key:s.id,onClick:function(){setEdit(Object.assign({},s));setModal("sessao")},style:{padding:"4px 6px",marginBottom:3,borderRadius:6,cursor:"pointer",fontSize:10,lineHeight:"1.4",background:isAg?C.wrBg:C.okBg,borderLeft:"3px solid "+(isAg?C.wr:C.ok)}},
+                            React.createElement("div",{style:{fontWeight:700,fontSize:11}},pac?pac.nome:"—"),
+                            React.createElement("div",{style:{color:C.txM}},prof?prof.nome:React.createElement("span",{style:{color:C.wr}},"⏳ Aguard. Prof.")),
+                            React.createElement("div",{style:{color:C.txM}},sala?"Sala "+sala.numero:React.createElement("span",{style:{color:C.wr}},"⏳ Sem sala"))
+                          );
+                        })
+                    );
+                  })
+                );
+              })
+            )
+          )
+        )
+        :/* ── LIST VIEW (original) ── */
+        DIAS.map(function(dia){
           var diaItems = fil.filter(function(s){return s.dia===dia});
           if(diaItems.length===0) return null;
           return React.createElement("div",{key:dia,style:{marginBottom:24}},
