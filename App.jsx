@@ -409,9 +409,11 @@ function App() {
       /* Filter by absence */
       if(sessao.dia && aus[prof.id+"-"+sessao.dia]) return false;
       /* Filter by availability: prof must have a time range covering the session */
-      if(sessao.dia && sessao.horaInicio){
-        var profDisp = (prof.disp && prof.disp[sessao.dia]) || [];
-        if(profDisp.length > 0){
+      if(sessao.dia && sessao.horaInicio && prof.disp){
+        var temAlgumDia = Object.keys(prof.disp).some(function(d){ return (prof.disp[d]||[]).length > 0; });
+        if(temAlgumDia){
+          var profDisp = prof.disp[sessao.dia] || [];
+          if(profDisp.length === 0) return false; /* prof doesn't work this day */
           var hasRange = profDisp.some(function(faixa){
             if(typeof faixa==="string") return faixa <= sessao.horaInicio; /* legacy */
             return faixa.ini <= sessao.horaInicio && faixa.fim >= (sessao.horaFim||sessao.horaInicio);
